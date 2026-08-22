@@ -1,5 +1,10 @@
+import 'dart:convert';
+
+import 'package:field_survey/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,6 +26,57 @@ class _LoginPageState extends State<LoginPage> {
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
+  }
+
+  // LOGIN API
+  Future<void> login() async {
+    try {
+      final response = await http.post(
+        Uri.parse('https://sijala.biz.id/api/v1/login'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': emailController.text.trim(),
+          'password': passwordController.text,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['status'] == true) {
+        final token = data['data']['token'];
+        if (token == null) {
+          throw Exception('Token tidak ditemukan');
+        }
+        final prefs = await SharedPreferences.getInstance();
+
+        await prefs.setString('token', token.toString());
+
+        await prefs.setString('user', jsonEncode(data['data']));
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login berhasil'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.go(AppRoutes.dashboard);
+      } else {
+        final message = data['message'] ?? 'Email atau password salah ';
+        throw Exception(message);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -82,6 +138,7 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 35),
 
+                        // EMAIL
                         TextFormField(
                           controller: emailController,
                           decoration: InputDecoration(
@@ -94,10 +151,17 @@ class _LoginPageState extends State<LoginPage> {
                               borderSide: BorderSide.none,
                             ),
                           ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Email wajib diisi';
+                            }
+                            return null;
+                          },
                         ),
 
                         const SizedBox(height: 20),
 
+                        // PASSWORD
                         TextFormField(
                           controller: passwordController,
                           obscureText: isHidden,
@@ -123,10 +187,17 @@ class _LoginPageState extends State<LoginPage> {
                               borderSide: BorderSide.none,
                             ),
                           ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Password wajib diisi';
+                            }
+                            return null;
+                          },
                         ),
 
                         const SizedBox(height: 20),
 
+                        // LOGIN BUTTON
                         SizedBox(
                           width: double.infinity,
                           height: 55,
@@ -138,7 +209,9 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             onPressed: () {
-                              context.go("/dashboard");
+                              if (_formKey.currentState!.validate()) {
+                                login();
+                              }
                             },
                             child: const Text(
                               "LOGIN",
@@ -152,6 +225,7 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 20),
 
+                        // REGISTER
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [

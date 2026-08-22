@@ -88,6 +88,8 @@ class _SplashScreenState extends State<SplashScreen> {
                     color: Colors.white,
                   ),
                 ),
+
+                const SizedBox(height: 50),
               ],
             ),
           ),

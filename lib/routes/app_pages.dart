@@ -3,6 +3,7 @@
 import 'package:field_survey/screens/auth/login_page.dart';
 import 'package:field_survey/screens/auth/register_page.dart';
 import 'package:field_survey/screens/dashboard/dashboard_page.dart';
+import 'package:field_survey/screens/profile/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../screens/splash/splash_screen.dart';
@@ -27,6 +28,10 @@ class AppPages {
       GoRoute(
         path: AppRoutes.dashboard,
         builder: (context, state) => const DashboardPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfilePage(),
       ),
     ],
   );
