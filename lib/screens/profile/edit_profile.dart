@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:field_survey/routes/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -42,60 +43,76 @@ class EditProfilePageState extends State<EditProfilePage> {
   static const String profileUpdateEndpoint = '$baseUrl/profile/update';
   static const String imageEndpoint = 'https://sijala.biz.id/api/image';
 
+  static const Color primary = Color(0xFF8B9A6E);
+  static const Color cream = Color(0xFFF7F2EB);
+  static const Color beige = Color(0xFFEAE2D6);
+  static const Color lightGrey = Color(0xFFEEEEEE);
+  static const Color darkText = Color(0xFF3F4437);
+  static const Color primaryColor = Color(0xFF4C5C2D);
+  static const Color greyText = Color(0xFF73776D);
+
   @override
   void initState() {
     super.initState();
+
     final profile = widget.profile ?? {};
 
     nameController = TextEditingController(
       text: profile['name']?.toString() ?? '',
     );
+
     emailController = TextEditingController(
       text: profile['email']?.toString() ?? '',
     );
+
     phoneController = TextEditingController(
       text: profile['phone']?.toString() ?? '',
     );
+
     birthPlaceController = TextEditingController(
       text: profile['birth_place']?.toString() ?? '',
     );
 
-    if (profile['gender'] != null) {
-      final g = profile['gender'].toString().toLowerCase();
-      if (g.startsWith('l')) {
+    final rawGender = profile['gender']?.toString().toLowerCase();
+
+    if (rawGender != null) {
+      if (rawGender.startsWith('l')) {
         gender = 'L';
-      } else if (g.startsWith('p')) {
+      } else if (rawGender.startsWith('p')) {
         gender = 'P';
       }
     }
 
     String displayBirthDate = '';
-    final String? rawDate = profile['birth_date']?.toString();
+    final rawDate = profile['birth_date']?.toString();
 
     if (rawDate != null && rawDate.isNotEmpty) {
       try {
         DateTime? parsedDate;
+
         if (rawDate.contains('-')) {
           final parts = rawDate.split('-');
+
           if (parts.length == 3) {
             if (parts[0].length == 4) {
               parsedDate = DateTime.parse(rawDate);
             } else if (parts[2].length == 4) {
-              final int day = int.parse(parts[0]);
-              final int month = int.parse(parts[1]);
-              final int year = int.parse(parts[2]);
+              final day = int.parse(parts[0]);
+              final month = int.parse(parts[1]);
+              final year = int.parse(parts[2]);
+
               parsedDate = DateTime(year, month, day);
             }
           }
         }
 
         if (parsedDate != null) {
-          final String dayStr = parsedDate.day.toString().padLeft(2, '0');
-          final String monthStr = parsedDate.month.toString().padLeft(2, '0');
-          final String yearStr = parsedDate.year.toString();
+          final day = parsedDate.day.toString().padLeft(2, '0');
+          final month = parsedDate.month.toString().padLeft(2, '0');
+          final year = parsedDate.year.toString();
 
-          displayBirthDate = '$dayStr-$monthStr-$yearStr';
-          apiBirthDate = '$yearStr-$monthStr-$dayStr';
+          displayBirthDate = '$day-$month-$year';
+          apiBirthDate = '$year-$month-$day';
         } else {
           displayBirthDate = rawDate;
           apiBirthDate = rawDate;
@@ -109,6 +126,7 @@ class EditProfilePageState extends State<EditProfilePage> {
     birthDateController = TextEditingController(text: displayBirthDate);
 
     final oldPhoto = profile['photo']?.toString();
+
     if (oldPhoto != null && oldPhoto.isNotEmpty) {
       oldProfileImageFuture = fetchProfileImage(oldPhoto);
     }
@@ -135,6 +153,7 @@ class EditProfilePageState extends State<EditProfilePage> {
   Future<void> pickImage() async {
     try {
       final picker = ImagePicker();
+
       final pickedFile = await picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1000,
@@ -142,19 +161,22 @@ class EditProfilePageState extends State<EditProfilePage> {
         imageQuality: 85,
       );
 
-      if (pickedFile != null) {
-        final bytes = await pickedFile.readAsBytes();
-        setState(() {
-          selectedImage = pickedFile;
-          selectedImageBytes = bytes;
-        });
-      }
+      if (pickedFile == null) return;
+
+      final bytes = await pickedFile.readAsBytes();
+
+      setState(() {
+        selectedImage = pickedFile;
+        selectedImageBytes = bytes;
+      });
     } catch (e) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Gagal mengambil gambar dari galeri.'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.brown,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -165,8 +187,10 @@ class EditProfilePageState extends State<EditProfilePage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
 
+      final cleanFileName = fileName.split('/').last;
+
       final response = await http.get(
-        Uri.parse('$imageEndpoint/$fileName'),
+        Uri.parse('$imageEndpoint/$cleanFileName'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -176,8 +200,9 @@ class EditProfilePageState extends State<EditProfilePage> {
       if (response.statusCode == 200) {
         return response.bodyBytes;
       }
+
       return null;
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
@@ -185,44 +210,54 @@ class EditProfilePageState extends State<EditProfilePage> {
   Future<void> selectBirthDate() async {
     DateTime initialDate = DateTime.now().subtract(
       const Duration(days: 365 * 10),
-    ); // Default 10 tahun
+    );
+
     if (apiBirthDate != null && apiBirthDate!.isNotEmpty) {
       try {
         initialDate = DateTime.parse(apiBirthDate!);
       } catch (_) {}
     }
 
-    final DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime(1966),
-      lastDate: DateTime.now().subtract(
-        const Duration(days: 1),
-      ), // Harus sebelum hari ini
+      lastDate: DateTime.now().subtract(const Duration(days: 1)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: primaryColor,
+              onPrimary: Colors.white,
+              onSurface: darkText,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
-    if (picked != null) {
-      final String day = picked.day.toString().padLeft(2, '0');
-      final String month = picked.month.toString().padLeft(2, '0');
-      final String year = picked.year.toString();
+    if (picked == null) return;
 
-      setState(() {
-        birthDateController.text = '$day-$month-$year';
-        apiBirthDate = '$year-$month-$day';
-      });
-    }
+    final day = picked.day.toString().padLeft(2, '0');
+    final month = picked.month.toString().padLeft(2, '0');
+    final year = picked.year.toString();
+
+    setState(() {
+      birthDateController.text = '$day-$month-$year';
+      apiBirthDate = '$year-$month-$day';
+    });
   }
 
   Future<void> saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     if (gender == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Silakan pilih jenis kelamin.'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.brown,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -248,7 +283,6 @@ class EditProfilePageState extends State<EditProfilePage> {
       request.headers['Accept'] = 'application/json';
       request.headers['Authorization'] = 'Bearer $token';
 
-      // DATA PROFILE
       request.fields['name'] = nameController.text.trim();
       request.fields['email'] = emailController.text.trim();
       request.fields['phone'] = phoneController.text.trim();
@@ -259,16 +293,6 @@ class EditProfilePageState extends State<EditProfilePage> {
         request.fields['birth_date'] = apiBirthDate!;
       }
 
-      // DEBUG
-      debugPrint('===== DATA YANG DIKIRIM =====');
-      debugPrint('NAME: ${request.fields['name']}');
-      debugPrint('EMAIL: ${request.fields['email']}');
-      debugPrint('PHONE: ${request.fields['phone']}');
-      debugPrint('GENDER: ${request.fields['gender']}');
-      debugPrint('BIRTH PLACE: ${request.fields['birth_place']}');
-      debugPrint('BIRTH DATE: ${request.fields['birth_date']}');
-
-      // FOTO
       if (selectedImage != null && selectedImageBytes != null) {
         request.files.add(
           http.MultipartFile.fromBytes(
@@ -285,15 +309,10 @@ class EditProfilePageState extends State<EditProfilePage> {
 
       final response = await http.Response.fromStream(streamedResponse);
 
-      debugPrint('===== RESPONSE SERVER =====');
-      debugPrint('STATUS: ${response.statusCode}');
-      debugPrint('BODY: ${response.body}');
-
       final data = safeJsonDecode(response.body);
 
       if (response.statusCode == 200) {
         if (data != null && data['status'] == true) {
-          // Simpan data terbaru ke SharedPreferences
           if (data['data'] != null) {
             await prefs.setString('user', jsonEncode(data['data']));
           }
@@ -303,11 +322,11 @@ class EditProfilePageState extends State<EditProfilePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Profil berhasil diperbarui.'),
-              backgroundColor: Colors.green,
+              backgroundColor: primaryColor,
+              behavior: SnackBarBehavior.floating,
             ),
           );
 
-          // Kembali ke ProfilePage + kirim tanda berhasil
           Navigator.pop(context, true);
         } else {
           throw Exception(data?['message'] ?? 'Gagal memperbarui profil.');
@@ -358,9 +377,13 @@ class EditProfilePageState extends State<EditProfilePage> {
         msg = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: Colors.brown,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -370,340 +393,494 @@ class EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // CARD DECORATION
-  static BoxDecoration cardDecoration() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 8,
-          offset: const Offset(0, 4),
+  InputDecoration inputDecoration({
+    required IconData icon,
+    required String hint,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: greyText, fontSize: 13),
+      prefixIcon: Icon(icon, color: primaryColor, size: 20),
+      filled: true,
+      fillColor: cream,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: lightGrey.withOpacity(0.7)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: primaryColor, width: 1.5),
+      ),
+    );
+  }
+
+  Widget fieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: darkText,
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget sectionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.black.withOpacity(0.035)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.045),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: beige,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icon, color: primaryColor, size: 21),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: darkText,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 11, color: greyText),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget photoSection() {
+    final oldPhoto = widget.profile?['photo']?.toString();
+
+    return Center(
+      child: Column(
+        children: [
+          Container(
+            width: 125,
+            height: 125,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: beige,
+              border: Border.all(color: primary.withOpacity(0.4), width: 2),
+            ),
+            child: ClipOval(
+              child: selectedImageBytes != null
+                  ? Image.memory(selectedImageBytes!, fit: BoxFit.cover)
+                  : oldPhoto != null && oldPhoto.isNotEmpty
+                  ? FutureBuilder<Uint8List?>(
+                      future: oldProfileImageFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: primaryColor,
+                            ),
+                          );
+                        }
+
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                          );
+                        }
+
+                        return const Icon(
+                          Icons.person_rounded,
+                          size: 58,
+                          color: primaryColor,
+                        );
+                      },
+                    )
+                  : const Icon(
+                      Icons.person_rounded,
+                      size: 58,
+                      color: primaryColor,
+                    ),
+            ),
+          ),
+          const SizedBox(height: 13),
+          Text(
+            selectedImage != null ? 'Foto baru dipilih' : 'Foto Profil',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: darkText,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Gunakan foto yang jelas dan mudah dikenali.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: greyText),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: isLoading ? null : pickImage,
+            icon: const Icon(Icons.photo_library_outlined, size: 18),
+            label: const Text('Pilih Foto'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: primaryColor,
+              side: BorderSide(color: primaryColor.withOpacity(0.35)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final oldPhoto = widget.profile?['photo']?.toString();
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(title: const Text('Edit Profil'), centerTitle: true),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // FOTO PROFIL & PREVIEW (WEB COMPATIBLE)
-                Center(
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.blue.shade50,
-                        backgroundImage: selectedImageBytes != null
-                            ? MemoryImage(selectedImageBytes!)
-                            : null,
-                        child: selectedImageBytes == null
-                            ? (oldPhoto != null && oldPhoto.isNotEmpty
-                                  ? FutureBuilder<Uint8List?>(
-                                      future: oldProfileImageFuture,
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState ==
-                                            ConnectionState.waiting) {
-                                          return const CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          );
-                                        }
-                                        if (snapshot.hasData &&
-                                            snapshot.data != null) {
-                                          return ClipOval(
-                                            child: Image.memory(
-                                              snapshot.data!,
-                                              width: 100,
-                                              height: 100,
-                                              fit: BoxFit.cover,
-                                            ),
-                                          );
-                                        }
-                                        return const Icon(
-                                          Icons.person,
-                                          size: 50,
-                                          color: Colors.blue,
-                                        );
-                                      },
-                                    )
-                                  : const Icon(
-                                      Icons.person,
-                                      size: 50,
-                                      color: Colors.blue,
-                                    ))
-                            : null,
+      backgroundColor: cream,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 175,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            title: const Text(
+              'Edit Profil',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                children: [
+                  Positioned(
+                    top: -55,
+                    right: -35,
+                    child: Container(
+                      width: 155,
+                      height: 155,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: beige.withOpacity(0.15),
                       ),
-                      const SizedBox(height: 10),
-                      TextButton.icon(
-                        onPressed: isLoading ? null : pickImage,
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('Ubah Foto Profil'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // FORM INPUTS IN CARD
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: cardDecoration(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // NAMA
-                      const Text(
-                        'Nama',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: nameController,
-                        textInputAction: TextInputAction.next,
-                        decoration: InputDecoration(
-                          hintText: 'Nama Lengkap Anda',
-                          prefixIcon: const Icon(Icons.person_outline),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Nama wajib diisi';
-                          }
-                          if (value.trim().length > 255) {
-                            return 'Nama maksimal 255 karakter';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // EMAIL
-                      const Text(
-                        'Email',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        decoration: InputDecoration(
-                          hintText: 'alamat@email.com',
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Email wajib diisi';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Format email tidak valid';
-                          }
-                          if (value.trim().length > 255) {
-                            return 'Email maksimal 255 karakter';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // NOMOR HP
-                      const Text(
-                        'Nomor HP',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: phoneController,
-                        keyboardType: TextInputType.phone,
-                        textInputAction: TextInputAction.next,
-                        decoration: InputDecoration(
-                          hintText: '08xxxxxxxxxx',
-                          prefixIcon: const Icon(Icons.phone_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Nomor HP wajib diisi';
-                          }
-                          final numStr = value.trim();
-                          if (numStr.length < 10) {
-                            return 'Nomor HP minimal 10 digit';
-                          }
-                          if (numStr.length > 15) {
-                            return 'Nomor HP maksimal 15 digit';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // JENIS KELAMIN
-                      const Text(
-                        'Jenis Kelamin',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String>(
-                        value: gender,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.wc_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'L',
-                            child: Text('Laki-laki'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'P',
-                            child: Text('Perempuan'),
-                          ),
-                        ],
-                        onChanged: isLoading
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  gender = value;
-                                });
-                              },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Jenis kelamin wajib dipilih';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // TEMPAT LAHIR
-                      const Text(
-                        'Tempat Lahir',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: birthPlaceController,
-                        textInputAction: TextInputAction.next,
-                        decoration: InputDecoration(
-                          hintText: 'Kota tempat Anda lahir',
-                          prefixIcon: const Icon(Icons.location_on_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value != null && value.trim().length > 100) {
-                            return 'Tempat lahir maksimal 100 karakter';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // TANGGAL LAHIR
-                      const Text(
-                        'Tanggal Lahir',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: birthDateController,
-                        readOnly: true,
-                        onTap: isLoading ? null : selectBirthDate,
-                        decoration: InputDecoration(
-                          hintText: 'Pilih tanggal lahir Anda',
-                          prefixIcon: const Icon(Icons.calendar_today_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Tanggal lahir wajib dipilih';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // BUTTON: SIMPAN
-                SizedBox(
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: isLoading ? null : saveProfile,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 2,
                     ),
-                    child: isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'SIMPAN PERUBAHAN',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
                   ),
-                ),
-              ],
+                  Positioned(
+                    bottom: -70,
+                    left: -45,
+                    child: Container(
+                      width: 170,
+                      height: 170,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: primary.withOpacity(0.25),
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 18,
+                    bottom: 22,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Perbarui Profil',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Pastikan informasi kamu tetap terbaru.',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 35),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    sectionCard(
+                      icon: Icons.camera_alt_outlined,
+                      title: 'Foto Profil',
+                      subtitle: 'Perbarui foto akun kamu',
+                      child: photoSection(),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    sectionCard(
+                      icon: Icons.person_outline,
+                      title: 'Data Pribadi',
+                      subtitle: 'Informasi dasar akun kamu',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          fieldLabel('Nama Lengkap'),
+                          TextFormField(
+                            controller: nameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: inputDecoration(
+                              icon: Icons.person_outline,
+                              hint: 'Nama lengkap',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Nama wajib diisi';
+                              }
+
+                              if (value.trim().length > 255) {
+                                return 'Nama maksimal 255 karakter';
+                              }
+
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          fieldLabel('Email'),
+                          TextFormField(
+                            controller: emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            decoration: inputDecoration(
+                              icon: Icons.email_outlined,
+                              hint: 'nama@email.com',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Email wajib diisi';
+                              }
+
+                              if (!value.contains('@')) {
+                                return 'Format email tidak valid';
+                              }
+
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          fieldLabel('Nomor HP'),
+                          TextFormField(
+                            controller: phoneController,
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.next,
+                            decoration: inputDecoration(
+                              icon: Icons.phone_outlined,
+                              hint: '08xxxxxxxxxx',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Nomor HP wajib diisi';
+                              }
+
+                              if (value.trim().length < 10) {
+                                return 'Nomor HP minimal 10 digit';
+                              }
+
+                              if (value.trim().length > 15) {
+                                return 'Nomor HP maksimal 15 digit';
+                              }
+
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    sectionCard(
+                      icon: Icons.badge_outlined,
+                      title: 'Informasi Tambahan',
+                      subtitle: 'Lengkapi informasi pribadi kamu',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          fieldLabel('Jenis Kelamin'),
+                          DropdownButtonFormField<String>(
+                            value: gender,
+                            decoration: inputDecoration(
+                              icon: Icons.wc_outlined,
+                              hint: 'Pilih jenis kelamin',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'L',
+                                child: Text('Laki-laki'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'P',
+                                child: Text('Perempuan'),
+                              ),
+                            ],
+                            onChanged: isLoading
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      gender = value;
+                                    });
+                                  },
+                            validator: (value) {
+                              if (value == null) {
+                                return 'Jenis kelamin wajib dipilih';
+                              }
+
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          fieldLabel('Tempat Lahir'),
+                          TextFormField(
+                            controller: birthPlaceController,
+                            textInputAction: TextInputAction.next,
+                            decoration: inputDecoration(
+                              icon: Icons.location_on_outlined,
+                              hint: 'Kota tempat lahir',
+                            ),
+                            validator: (value) {
+                              if (value != null && value.trim().length > 100) {
+                                return 'Tempat lahir maksimal 100 karakter';
+                              }
+
+                              return null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          fieldLabel('Tanggal Lahir'),
+                          TextFormField(
+                            controller: birthDateController,
+                            readOnly: true,
+                            onTap: isLoading ? null : selectBirthDate,
+                            decoration: inputDecoration(
+                              icon: Icons.calendar_today_outlined,
+                              hint: 'Pilih tanggal lahir',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Tanggal lahir wajib dipilih';
+                              }
+
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: isLoading ? null : saveProfile,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 23,
+                                height: 23,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.check_circle_outline),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Simpan Perubahan',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

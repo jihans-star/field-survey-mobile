@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,76 +24,63 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F2EB),
       body: Center(
-        child: Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF2563EB), Color(0xFF3B82F6), Color(0xFF60A5FA)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 110,
+              height: 110,
+              decoration: const BoxDecoration(
+                color: Color(0xFF4C5C2D),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.assignment_rounded,
+                size: 55,
+                color: Colors.white,
+              ),
             ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                const Spacer(),
 
-                // Logo
-                Container(
-                  padding: const EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 25,
-                        offset: Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.assignment_outlined,
-                    size: 80,
-                    color: Color(0xFF2563EB),
-                  ),
-                ),
+            const SizedBox(height: 25),
 
-                const SizedBox(height: 30),
-
-                const Text(
-                  "Field Survey",
-                  style: TextStyle(
-                    fontSize: 34,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                const Text(
-                  "Aplikasi Mobile",
-                  style: TextStyle(fontSize: 17, color: Colors.white70),
-                ),
-
-                const SizedBox(height: 50),
-
-                const SizedBox(
-                  width: 35,
-                  height: 35,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: Colors.white,
-                  ),
-                ),
-
-                const SizedBox(height: 50),
-              ],
+            const Text(
+              'FIELD SURVEY',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3F4437),
+                letterSpacing: 1,
+              ),
             ),
-          ),
+
+            const SizedBox(height: 8),
+
+            const Text(
+              'Survey lapangan jadi lebih mudah.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF73776D),
+              ),
+            ),
+
+            const SizedBox(height: 35),
+
+            const CircularProgressIndicator(
+              color: Color(0xFF4C5C2D),
+            ),
+
+            const SizedBox(height: 15),
+
+            const Text(
+              'Menyiapkan aplikasi...',
+              style: TextStyle(
+                color: Color(0xFF73776D),
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
       ),
     );

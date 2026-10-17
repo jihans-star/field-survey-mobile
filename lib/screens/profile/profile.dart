@@ -15,16 +15,20 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // API
   static const String baseUrl = 'https://sijala.biz.id/api/v1';
   static const String profileEndpoint = '$baseUrl/profile';
-
-  // endpoint gambar
   static const String imageEndpoint = 'https://sijala.biz.id/api/image';
 
-  // state
+  static const Color primary = Color(0xFF8B9A6E);
+  static const Color cream = Color(0xFFF7F2EB);
+  static const Color beige = Color(0xFFEAE2D6);
+  static const Color darkText = Color(0xFF3F4437);
+  static const Color primaryColor = Color(0xFF4C5C2D);
+  static const Color greyText = Color(0xFF73776D);
+
   Map<String, dynamic>? profile;
   Future<Uint8List?>? profileImageFuture;
+
   bool isLoading = true;
 
   @override
@@ -33,12 +37,13 @@ class _ProfilePageState extends State<ProfilePage> {
     getProfile();
   }
 
-  // GET PROFILE
   Future<void> getProfile() async {
     try {
-      setState(() {
-        isLoading = true;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = true;
+        });
+      }
 
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
@@ -75,20 +80,28 @@ class _ProfilePageState extends State<ProfilePage> {
 
           isLoading = false;
         });
+      } else if (response.statusCode == 401) {
+        await prefs.remove('token');
+        await prefs.remove('user');
+
+        if (!mounted) return;
+
+        context.go(AppRoutes.login);
       } else {
         throw Exception(data['message'] ?? 'Gagal mengambil data profile.');
       }
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         isLoading = false;
       });
 
-      if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString().replaceAll('Exception: ', '')),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.brown,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -99,8 +112,10 @@ class _ProfilePageState extends State<ProfilePage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
 
+      final cleanFileName = fileName.split('/').last;
+
       final response = await http.get(
-        Uri.parse('$imageEndpoint/$fileName'),
+        Uri.parse('$imageEndpoint/$cleanFileName'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -119,25 +134,38 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> logout() async {
-    // 1. Tampilkan Dialog Konfirmasi
     final result = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Konfirmasi Logout'),
-          content: const Text('Apakah Anda yakin ingin keluar dari akun?'),
+          backgroundColor: cream,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Keluar dari Akun?',
+            style: TextStyle(fontWeight: FontWeight.bold, color: darkText),
+          ),
+          content: const Text(
+            'Apakah kamu yakin ingin keluar dari akun?',
+            style: TextStyle(color: greyText),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Batal'),
+              child: const Text('Batal', style: TextStyle(color: primaryColor)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text(
-                'Keluar',
-                style: TextStyle(color: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.brown,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Keluar'),
             ),
           ],
         );
@@ -147,19 +175,16 @@ class _ProfilePageState extends State<ProfilePage> {
     if (result != true) return;
 
     try {
-      // Ambil token
       final prefs = await SharedPreferences.getInstance();
-
       final token = prefs.getString('token');
 
-      // Jika token tidak ditemukan
       if (token == null || token.isEmpty) {
         await prefs.remove('token');
         await prefs.remove('user');
 
         if (!mounted) return;
 
-        context.go('/login');
+        context.go(AppRoutes.login);
         return;
       }
 
@@ -171,8 +196,6 @@ class _ProfilePageState extends State<ProfilePage> {
         },
       );
 
-      // 200 = sukses
-      // 401 = token expired/revoked
       if (response.statusCode == 200 || response.statusCode == 401) {
         await prefs.remove('token');
         await prefs.remove('user');
@@ -182,19 +205,20 @@ class _ProfilePageState extends State<ProfilePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Logout berhasil'),
-            backgroundColor: Colors.green,
+            backgroundColor: primaryColor,
+            behavior: SnackBarBehavior.floating,
           ),
         );
 
-        // Kembali ke login
-        context.go('/login');
+        context.go(AppRoutes.login);
       } else {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Logout gagal. Silakan coba lagi.'),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.brown,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -204,7 +228,8 @@ class _ProfilePageState extends State<ProfilePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tidak dapat terhubung ke server.'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.brown,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
@@ -214,24 +239,67 @@ class _ProfilePageState extends State<ProfilePage> {
     await getProfile();
   }
 
-  Widget infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
+  BoxDecoration cardDecoration({
+    Color color = Colors.white,
+    double radius = 22,
+  }) {
+    return BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Colors.black.withOpacity(0.035)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.045),
+          blurRadius: 18,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    );
+  }
+
+  Widget infoItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: cream,
+        borderRadius: BorderRadius.circular(15),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 13, color: Colors.grey),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: beige,
+              borderRadius: BorderRadius.circular(11),
             ),
+            child: Icon(icon, color: primaryColor, size: 20),
           ),
+          const SizedBox(width: 11),
           Expanded(
-            flex: 5,
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 11, color: greyText),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: darkText,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -239,187 +307,494 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget profileCard() {
-    if (profile == null) {
-      return const Center(child: Text('Data profile tidak ditemukan.'));
-    }
-
+  Widget profileHeader() {
     final name = profile!['name']?.toString() ?? '-';
     final username = profile!['username']?.toString() ?? '-';
     final photo = profile!['photo']?.toString();
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(22),
       decoration: cardDecoration(),
       child: Column(
         children: [
-          // FOTO
-          ClipOval(
-            child: photo != null && photo.isNotEmpty
-                ? FutureBuilder<Uint8List?>(
-                    future: profileImageFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2.2),
-                        );
-                      }
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                width: 108,
+                height: 108,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: beige,
+                  border: Border.all(color: primary.withOpacity(0.4), width: 2),
+                ),
+                child: ClipOval(
+                  child: photo != null && photo.isNotEmpty
+                      ? FutureBuilder<Uint8List?>(
+                          future: profileImageFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: primaryColor,
+                                ),
+                              );
+                            }
 
-                      if (snapshot.hasData) {
-                        return ClipOval(
-                          child: Image.memory(
-                            snapshot.data!,
-                            width: 84,
-                            height: 84,
-                            fit: BoxFit.cover,
-                          ),
-                        );
-                      }
+                            if (snapshot.hasData && snapshot.data != null) {
+                              return Image.memory(
+                                snapshot.data!,
+                                fit: BoxFit.cover,
+                              );
+                            }
 
-                      return const Icon(
-                        Icons.person_rounded,
-                        size: 45,
-                        color: Colors.blue,
-                      );
-                    },
-                  )
-                : const Icon(Icons.person, size: 45, color: Colors.blue),
+                            return const Icon(
+                              Icons.person_rounded,
+                              size: 55,
+                              color: primaryColor,
+                            );
+                          },
+                        )
+                      : const Icon(
+                          Icons.person_rounded,
+                          size: 55,
+                          color: primaryColor,
+                        ),
+                ),
+              ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: primaryColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 3),
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 16),
+              ),
+            ],
           ),
-
-          const SizedBox(height: 14),
-
-          // NAMA
+          const SizedBox(height: 16),
           Text(
             name,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: darkText,
+            ),
           ),
-
-          const SizedBox(height: 4),
-
-          Text('@$username', style: const TextStyle(color: Colors.grey)),
-
-          const Divider(height: 30),
-
-          // INFORMASI PROFILE
-          infoRow('Username', username),
-          infoRow('Email', profile!['email']?.toString() ?? '-'),
-          infoRow('Nomor HP', profile!['phone']?.toString() ?? '-'),
-          infoRow('Jenis Kelamin', profile!['gender']?.toString() ?? '-'),
-          infoRow('Tempat Lahir', profile!['birth_place']?.toString() ?? '-'),
-          infoRow('Tanggal Lahir', profile!['birth_date']?.toString() ?? '-'),
+          const SizedBox(height: 5),
+          Text(
+            '@$username',
+            style: const TextStyle(fontSize: 13, color: greyText),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+            decoration: BoxDecoration(
+              color: primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.person_outline, size: 16, color: primaryColor),
+                SizedBox(width: 6),
+                Text(
+                  'Pengguna Field Survey',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // ACTION CARD
-  // ============================================================
+  Widget sectionTitle({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: beige,
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Icon(icon, color: primaryColor, size: 21),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: darkText,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 11, color: greyText),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget actionCard({
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    bool isLogout = false,
+    bool danger = false,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: cardDecoration(),
-      child: ListTile(
-        leading: Icon(icon, color: isLogout ? Colors.red : Colors.blue),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: isLogout ? Colors.red : Colors.black87,
-          ),
+    final iconColor = danger ? Colors.brown : primaryColor;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: cardDecoration(),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: danger ? Colors.brown.withOpacity(0.09) : beige,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: danger ? Colors.brown : darkText,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 11, color: greyText),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 15,
+              color: danger ? Colors.brown : greyText,
+            ),
+          ],
         ),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onTap,
       ),
     );
   }
 
-  // ============================================================
-  // CARD DECORATION
-  // ============================================================
+  Widget buildBody() {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: primaryColor),
+      );
+    }
 
-  static BoxDecoration cardDecoration() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 8,
-          offset: const Offset(0, 4),
+    if (profile == null) {
+      return RefreshIndicator(
+        color: primaryColor,
+        onRefresh: handleRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 250),
+            Center(
+              child: Text(
+                'Data profile tidak ditemukan.',
+                style: TextStyle(color: greyText),
+              ),
+            ),
+          ],
         ),
-      ],
+      );
+    }
+
+    return RefreshIndicator(
+      color: primaryColor,
+      onRefresh: handleRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 30),
+        children: [
+          profileHeader(),
+
+          const SizedBox(height: 22),
+
+          sectionTitle(
+            icon: Icons.badge_outlined,
+            title: 'Informasi Pribadi',
+            subtitle: 'Data yang tersimpan pada akun kamu',
+          ),
+
+          const SizedBox(height: 13),
+
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: cardDecoration(),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: infoItem(
+                        icon: Icons.person_outline,
+                        label: 'Username',
+                        value: profile!['username']?.toString() ?? '-',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: infoItem(
+                        icon: Icons.email_outlined,
+                        label: 'Email',
+                        value: profile!['email']?.toString() ?? '-',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: infoItem(
+                        icon: Icons.phone_outlined,
+                        label: 'Nomor HP',
+                        value: profile!['phone']?.toString() ?? '-',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: infoItem(
+                        icon: Icons.wc_outlined,
+                        label: 'Jenis Kelamin',
+                        value: profile!['gender']?.toString() ?? '-',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: infoItem(
+                        icon: Icons.location_on_outlined,
+                        label: 'Tempat Lahir',
+                        value: profile!['birth_place']?.toString() ?? '-',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: infoItem(
+                        icon: Icons.calendar_today_outlined,
+                        label: 'Tanggal Lahir',
+                        value: profile!['birth_date']?.toString() ?? '-',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 22),
+
+          sectionTitle(
+            icon: Icons.settings_outlined,
+            title: 'Pengaturan Akun',
+            subtitle: 'Kelola akun dan sesi kamu',
+          ),
+
+          const SizedBox(height: 13),
+
+          actionCard(
+            icon: Icons.edit_outlined,
+            title: 'Edit Profil',
+            subtitle: 'Perbarui informasi dan foto profil',
+            onTap: () async {
+              if (profile == null) return;
+
+              final result = await context.push(
+                AppRoutes.editProfile,
+                extra: profile,
+              );
+
+              if (result == true && mounted) {
+                await getProfile();
+              }
+            },
+          ),
+
+          const SizedBox(height: 10),
+
+          actionCard(
+            icon: Icons.logout_rounded,
+            title: 'Keluar',
+            subtitle: 'Keluar dari akun Field Survey',
+            danger: true,
+            onTap: logout,
+          ),
+
+          const SizedBox(height: 22),
+
+          Center(
+            child: Column(
+              children: [
+                Icon(
+                  Icons.eco_outlined,
+                  color: primary.withOpacity(0.7),
+                  size: 20,
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Field Survey',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: greyText,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Kelola data survey dengan lebih mudah',
+                  style: TextStyle(fontSize: 10, color: greyText),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-
-      appBar: AppBar(title: Center(child: Text('Profile'))),
-
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: handleRefresh,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // PROFILE
-                if (isLoading)
-                  const Padding(
-                    padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(),
-                  )
-                else
-                  profileCard(),
-
-                const SizedBox(height: 16),
-
-                // EDIT PROFILE
-                actionCard(
-                  icon: Icons.edit,
-                  title: 'Edit Profil',
-                  subtitle: 'Perbarui data diri',
-                  onTap: () async {
-                    if (profile != null) {
-                      final result = await context.push(
-                        AppRoutes.editProfile,
-                        extra: profile,
-                      );
-
-                      if (result == true && mounted) {
-                        await getProfile();
-                      }
-                    }
-                  },
-                ),
-
-                // LOGOUT
-                actionCard(
-                  icon: Icons.logout,
-                  title: 'Keluar',
-                  subtitle: 'Logout dari akun',
-                  isLogout: true,
-                  onTap: logout,
-                ),
-              ],
+      backgroundColor: cream,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 185,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            title: const Text(
+              'Profile',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            centerTitle: false,
+            actions: [
+              IconButton(
+                tooltip: 'Refresh',
+                onPressed: getProfile,
+                icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+              ),
+              const SizedBox(width: 5),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                children: [
+                  Positioned(
+                    top: -55,
+                    right: -35,
+                    child: Container(
+                      width: 155,
+                      height: 155,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: beige.withOpacity(0.15),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -70,
+                    left: -45,
+                    child: Container(
+                      width: 170,
+                      height: 170,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: primary.withOpacity(0.25),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 105,
+                    right: 80,
+                    child: Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.12),
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 18,
+                    bottom: 22,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Akun Saya',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Kelola informasi profil kamu.',
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+
+          SliverFillRemaining(hasScrollBody: true, child: buildBody()),
+        ],
       ),
     );
   }
