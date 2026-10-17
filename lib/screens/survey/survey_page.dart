@@ -18,7 +18,7 @@ class _SurveyPageState extends State<SurveyPage> {
   List<dynamic> surveys = [];
   bool isLoading = true;
 
-  static const Color primary = Color(0xFF8B9A6E);
+  // static const Color primary = Color(0xFF8B9A6E);
   static const Color cream = Color(0xFFF7F2EB);
   static const Color beige = Color(0xFFEAE2D6);
   static const Color lightGrey = Color(0xFFEEEEEE);
